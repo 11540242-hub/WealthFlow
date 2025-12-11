@@ -1,10 +1,28 @@
 import { GoogleGenAI } from "@google/genai";
 import { StockUpdateResult, GroundingSource } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to safely get API key from various sources
+const getApiKey = () => {
+  if (typeof process !== 'undefined' && process.env?.API_KEY) return process.env.API_KEY;
+  if ((import.meta as any).env?.VITE_GOOGLE_GENAI_API_KEY) return (import.meta as any).env.VITE_GOOGLE_GENAI_API_KEY;
+  return null;
+};
+
+const apiKey = getApiKey();
+// Do not instantiate if no key to prevent crash on load
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export async function fetchCurrentStockPrices(symbols: string[]): Promise<{ prices: StockUpdateResult[], sources: GroundingSource[] }> {
   if (symbols.length === 0) return { prices: [], sources: [] };
+  
+  if (!ai) {
+    console.warn("Gemini API Key missing. Returning mock data.");
+    // Mock data for demo purposes
+    return {
+        prices: symbols.map(s => ({ symbol: s, price: Math.floor(Math.random() * 1000) + 100 })),
+        sources: []
+    };
+  }
 
   const symbolList = symbols.join(", ");
   const prompt = `
@@ -64,17 +82,24 @@ export async function fetchCurrentStockPrices(symbols: string[]): Promise<{ pric
 
   } catch (error) {
     console.error("Error fetching stock prices:", error);
-    throw error;
+    // Return empty result on error instead of throwing to keep UI alive
+    return { prices: [], sources: [] };
   }
 }
 
 export async function generateFinancialAdvice(summary: string): Promise<string> {
-    const aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-    const response = await aiInstance.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `Act as a financial advisor. Here is a summary of my current finances: ${summary}. 
-        Provide a brief, encouraging, and actionable 3-bullet point summary of advice. Keep it under 100 words.`,
-    });
-    return response.text || "Unable to generate advice at this time.";
+    if (!ai) {
+        return "AI Advisor is unavailable (Missing API Key). Please configure VITE_GOOGLE_GENAI_API_KEY.";
+    }
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `Act as a financial advisor. Here is a summary of my current finances: ${summary}. 
+            Provide a brief, encouraging, and actionable 3-bullet point summary of advice. Keep it under 100 words.`,
+        });
+        return response.text || "Unable to generate advice at this time.";
+    } catch (e) {
+        console.error("Gemini Error", e);
+        return "Sorry, I cannot provide advice right now due to a connection error.";
+    }
 }
