@@ -1,14 +1,20 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  // GitHub Pages usually serves from a subdirectory (the repo name).
-  // If your repo is https://user.github.io/repo-name/, set base to '/repo-name/'
-  // For now, we use './' to make it relative path friendly.
-  base: './', 
-  define: {
-    'process.env': process.env
-  }
+export default defineConfig(({ mode }) => {
+  // Load env file based on `mode` in the current working directory.
+  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    plugins: [react()],
+    base: './', 
+    define: {
+      // Polyfill process.env.API_KEY for the Gemini SDK
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_GOOGLE_GENAI_API_KEY || ''),
+      // Prevent other process.env usage from crashing
+      'process.env': {} 
+    }
+  };
 });
