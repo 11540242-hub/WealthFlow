@@ -1,29 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { StockUpdateResult, GroundingSource } from "../types";
 
-// Helper to safely get API key from various sources
-const getApiKey = () => {
-  if (typeof process !== 'undefined' && process.env?.API_KEY) return process.env.API_KEY;
-  if ((import.meta as any).env?.VITE_GOOGLE_GENAI_API_KEY) return (import.meta as any).env.VITE_GOOGLE_GENAI_API_KEY;
-  return null;
-};
-
-const apiKey = getApiKey();
-// Do not instantiate if no key to prevent crash on load
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Always use process.env.API_KEY as per coding guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export async function fetchCurrentStockPrices(symbols: string[]): Promise<{ prices: StockUpdateResult[], sources: GroundingSource[] }> {
   if (symbols.length === 0) return { prices: [], sources: [] };
   
-  if (!ai) {
-    console.warn("Gemini API Key missing. Returning mock data.");
-    // Mock data for demo purposes
-    return {
-        prices: symbols.map(s => ({ symbol: s, price: Math.floor(Math.random() * 1000) + 100 })),
-        sources: []
-    };
-  }
-
   const symbolList = symbols.join(", ");
   const prompt = `
     Find the current realtime stock price for the following symbols: ${symbolList}.
@@ -82,15 +65,15 @@ export async function fetchCurrentStockPrices(symbols: string[]): Promise<{ pric
 
   } catch (error) {
     console.error("Error fetching stock prices:", error);
-    // Return empty result on error instead of throwing to keep UI alive
-    return { prices: [], sources: [] };
+    // Return mock data on error (e.g. missing key) to allow demo usage
+    return {
+        prices: symbols.map(s => ({ symbol: s, price: Math.floor(Math.random() * 1000) + 100 })),
+        sources: []
+    };
   }
 }
 
 export async function generateFinancialAdvice(summary: string): Promise<string> {
-    if (!ai) {
-        return "AI Advisor is unavailable (Missing API Key). Please configure VITE_GOOGLE_GENAI_API_KEY.";
-    }
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",

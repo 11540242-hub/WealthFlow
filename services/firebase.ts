@@ -1,4 +1,4 @@
-import * as firebaseApp from "firebase/app";
+import { initializeApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
 
 // These variables will be injected by Vite from GitHub Secrets/Environment variables
@@ -19,7 +19,7 @@ if (apiKey && apiKey !== 'undefined') {
     };
 
     // Initialize Firebase
-    const app = firebaseApp.initializeApp(firebaseConfig);
+    const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     console.log("Firebase initialized successfully");
   } catch (error) {
